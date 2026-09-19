@@ -1,5 +1,6 @@
 ﻿#include "ComputerModules/PCI/FINComputerNetworkCard.h"
 
+#include "FicsItNetworksComputer.h"
 #include "FicsItReflection.h"
 #include "FINNetworkCircuit.h"
 #include "Net/UnrealNetwork.h"
@@ -20,7 +21,12 @@ void AFINComputerNetworkCard::BeginPlay() {
 	Super::BeginPlay();
 
 	if (HasAuthority() && !GetBlueprintDesigner()) {
-		if (!bIdCreated) {
+		// See UFINAdvancedNetworkConnectionComponent::BeginPlay:
+		// an invalid (all-zero) ID has to be regenerated, even if it was created before.
+		if (!bIdCreated || !ID.IsValid()) {
+			if (bIdCreated) {
+				UE_LOG(LogFicsItNetworksComputer, Warning, TEXT("Network Card '%s' had an invalid ID stored, a new ID gets generated."), *GetName());
+			}
 			ID = FGuid::NewGuid();
 			bIdCreated = true;
 		}

@@ -1,4 +1,5 @@
 #include "FINAdvancedNetworkConnectionComponent.h"
+#include "FicsItNetworksCircuit.h"
 #include "FINNetworkCircuit.h"
 #include "FGBlueprintSubsystem.h"
 #include "Buildables/FGBuildable.h"
@@ -23,7 +24,14 @@ void UFINAdvancedNetworkConnectionComponent::BeginPlay() {
 		if (bOuterAsRedirect) RedirectionObject = GetOuter();
 
 		if (GetOwner()->HasAuthority()) {
-			if (!bIdCreated) {
+			// An invalid (all-zero) ID means either the ID was never created,
+			// or the saved ID got lost/corrupted. Both cases have to be recovered from,
+			// otherwise every affected component would share the same invalid ID
+			// and could no longer be addressed individually over the network.
+			if (!bIdCreated || !ID.IsValid()) {
+				if (bIdCreated) {
+					UE_LOG(LogFicsItNetworksCircuit, Warning, TEXT("Network Component '%s' of '%s' had an invalid ID stored, a new ID gets generated."), *GetName(), *GetOwner()->GetName());
+				}
 				ID = FGuid::NewGuid();
 				bIdCreated = true;
 			}
