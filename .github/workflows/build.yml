@@ -24,6 +24,15 @@ jobs:
       - name: Lock Runner
         run: lockctl acquire github-action
 
+      # The Derived Data Cache lives outside the workspace and survives every run,
+      # so a poisoned shader entry keeps getting reused even though the workspace
+      # is wiped. Pin the DDC into the workspace instead, which the Pre/Post
+      # Cleanup steps clear, so every build cooks its shaders from scratch.
+      - name: Isolate Derived Data Cache
+        run: |
+          echo "UE-LocalDataCachePath=${{ github.workspace }}/DDC" >> $GITHUB_ENV
+          echo "UE-SharedDataCachePath=None" >> $GITHUB_ENV
+
       - uses: actions/checkout@v4
         with:
           repository: satisfactorymodding/SatisfactoryModLoader
