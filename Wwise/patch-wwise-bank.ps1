@@ -7,7 +7,7 @@
 #
 # Nach jedem "WwiseConsole generate-soundbank" und vor dem Paketieren ausführen.
 param(
-	[string]$Bank = "$PSScriptRoot\SatisfactoryModLoader\SatisfactoryModLoader_WwiseProject\GeneratedSoundBanks\Windows\FicsItNetworks_Soundbank.bnk",
+	[string]$Bank = "$PSScriptRoot\..\..\..\..\SatisfactoryModLoader_WwiseProject\GeneratedSoundBanks\Windows\FicsItNetworks_Soundbank.bnk",
 	[uint32]$ProjectId = 3134
 )
 $bytes = [IO.File]::ReadAllBytes($Bank)
