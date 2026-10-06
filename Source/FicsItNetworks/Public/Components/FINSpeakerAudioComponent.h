@@ -1,7 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "AkAudioInputComponent.h"
+#include "FINWwiseAudioInputComponent.h"
 #include "FINSpeakerAudioComponent.generated.h"
 
 /**
@@ -23,7 +23,7 @@ DECLARE_MULTICAST_DELEGATE(FFINSpeakerAudioFinished);
  * This way the speaker uses the game's audio pipeline (volume sliders, output device switching, spatialization).
  */
 UCLASS()
-class FICSITNETWORKS_API UFINSpeakerAudioComponent : public UAkAudioInputComponent {
+class FICSITNETWORKS_API UFINSpeakerAudioComponent : public UFINWwiseAudioInputComponent {
 	GENERATED_BODY()
 public:
 	UFINSpeakerAudioComponent(const FObjectInitializer& ObjectInitializer);
@@ -42,13 +42,6 @@ public:
 
 	bool IsPlayingData() const;
 
-	/**
-	 * Makes sure the Wwise event and its SoundBank are loaded.
-	 * The event gets loaded together with the speaker blueprint while the mod initializes. At that time Wwise might not have
-	 * loaded its Init bank yet, so the SoundBank fails to load and Wwise doesn't retry on its own.
-	 */
-	void EnsureEventLoaded();
-
 	/** Broadcast on the game thread when the sound reached its end. */
 	FFINSpeakerAudioFinished OnFinished;
 
@@ -59,11 +52,6 @@ protected:
 	// End UAkAudioInputComponent
 
 private:
-	/** Posts the audio input event, retries for a moment while the event data is still loading. */
-	void PostWhenLoaded(uint32 ForGeneration, int32 RetriesLeft);
-
-	FTimerHandle PostRetryTimer;
-
 	mutable FCriticalSection DataLock;
 	TSharedPtr<const FFINSpeakerSoundData> Data;
 	int64 FramePosition = 0;

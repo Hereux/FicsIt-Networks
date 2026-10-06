@@ -1,17 +1,10 @@
 #include "Components/FINSpeakerAudioComponent.h"
 
-#include "AkAudioEvent.h"
 #include "Async/Async.h"
-#include "TimerManager.h"
 #include "AudioDecompress.h"
 #include "Decoders/VorbisAudioInfo.h"
-#include "FicsItNetworksModule.h"
 
-UFINSpeakerAudioComponent::UFINSpeakerAudioComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {
-	// Keep the game object alive while the owner exists, the speaker controls playback itself
-	SetAutoDestroy(false);
-	StopWhenOwnerDestroyed = true;
-}
+UFINSpeakerAudioComponent::UFINSpeakerAudioComponent(const FObjectInitializer& ObjectInitializer) : Super(ObjectInitializer) {}
 
 TSharedPtr<const FFINSpeakerSoundData> UFINSpeakerAudioComponent::DecodeOgg(const TArray<uint8>& FileData) {
 	FSoundQualityInfo Quality;
@@ -29,46 +22,18 @@ TSharedPtr<const FFINSpeakerSoundData> UFINSpeakerAudioComponent::DecodeOgg(cons
 
 void UFINSpeakerAudioComponent::PlayData(const TSharedRef<const FFINSpeakerSoundData>& InData, float StartSeconds) {
 	StopData();
-	uint32 PlayGeneration;
 	{
 		FScopeLock Lock(&DataLock);
 		Data = InData;
 		FramePosition = FMath::Clamp<int64>(static_cast<int64>(FMath::Max(0.f, StartSeconds) * InData->SampleRate), 0, InData->GetNumFrames());
 		bFinishedNotified = false;
-		PlayGeneration = ++Generation;
+		++Generation;
 	}
-	EnsureEventLoaded();
-	PostWhenLoaded(PlayGeneration, 50);
-}
-
-void UFINSpeakerAudioComponent::EnsureEventLoaded() {
-	if (AkAudioEvent && !AkAudioEvent->IsLoaded()) {
-		AkAudioEvent->LoadData();
-	}
-}
-
-void UFINSpeakerAudioComponent::PostWhenLoaded(uint32 ForGeneration, int32 RetriesLeft) {
-	if (Generation != ForGeneration || !AkAudioEvent) return;
-
-	if (AkAudioEvent->IsDataFullyLoaded()) {
-		PostAssociatedAudioInputEvent();
-		return;
-	}
-
-	UWorld* World = GetWorld();
-	if (RetriesLeft <= 0 || !World) {
-		UE_LOG(LogFicsItNetworks, Warning, TEXT("Speaker: Wwise event '%s' is not loaded, can not play sound."), *AkAudioEvent->GetName());
-		return;
-	}
-	World->GetTimerManager().SetTimer(PostRetryTimer, FTimerDelegate::CreateWeakLambda(this, [this, ForGeneration, RetriesLeft]() {
-		PostWhenLoaded(ForGeneration, RetriesLeft - 1);
-	}), 0.1f, false);
+	PostInputEvent();
 }
 
 void UFINSpeakerAudioComponent::StopData() {
-	if (UWorld* World = GetWorld()) {
-		World->GetTimerManager().ClearTimer(PostRetryTimer);
-	}
+	CancelPostInputEvent();
 	{
 		FScopeLock Lock(&DataLock);
 		Data.Reset();
@@ -97,6 +62,8 @@ bool UFINSpeakerAudioComponent::FillSamplesBuffer(uint32 NumChannels, uint32 Num
 			AsyncTask(ENamedThreads::GameThread, [WeakThis = TWeakObjectPtr<UFINSpeakerAudioComponent>(this), FinishedGeneration = Generation]() {
 				UFINSpeakerAudioComponent* This = WeakThis.Get();
 				if (This && This->Generation == FinishedGeneration) {
+					// Returning false only reports "no data ready", the Wwise voice keeps running until it gets stopped
+					This->Stop();
 					This->OnFinished.Broadcast();
 				}
 			});
